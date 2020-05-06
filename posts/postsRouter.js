@@ -5,13 +5,6 @@ const db = require("../data/db");
 
 const postslength = 9
 
-let Post = {
-    title: "", // String, required
-    contents: "", // String, required
-    created_at: Date.now(), // Date, defaults to current date
-    updated_at: Date.now() // Date, defaults to current date
-}
-
 let comment = {
     text: "", // String, required
     post_id: "", // Integer, required, must match the id of a post entry in the database
@@ -33,7 +26,7 @@ router.get("/:id", (req, res) => {
     const id = req.params.id
     db.findById(id)
     .then(post => {
-        if(!post.id){
+        if(post.length == 0){
             res.status(404).json({error: "The post with the specified ID does not exist."})
         } else {
             res.status(200).json({post: post})
@@ -58,57 +51,56 @@ router.get("/:id/comments", (req, res) => {
   });
 
   router.post("/", (req, res) => {
-    Post.title = req.body.title,
-    Post.contents = req.body.contents
-    db.insert(Post)
-    .then(post => {
-        if(req.body.contents.length==0 || req.body.title.length==0){
-            res.status(404).json({errorMessage: "Please provide title and contents for the post."})
-        } else {
-
-            res.status(200).json({post: post})
-        }
-    }).catch(error => {
-        res.status(500).json({error: "The posts information could not be retrieved."}).end()
-    })
+    if (!req.body.title || !req.body.contents) {
+        res.status(400).json({message: 'please make sure to send a valid title and valid contents'})  
+      } else {
+        db.insert(req.body)
+            .then(post => {
+                    res.status(201).json(post)
+            }).catch(error=>{
+                console.log(error)
+                res.status(500).json({
+                    errormessage: 'error getting data'})
+            })
+      }
 })
 
 
 router.post("/:id/comments", (req, res) => {
     const id = req.params.id
-    comment.text = req.body.text,
-    comment.post_id = req.body.post_id
-    db.insertComment(comment)
-    .then(comment => {
-        if(req.body.post_id == (id)){
+    comment = req.body
+    comment.post_id = id
+
+    if(!req.body.text){
+        res.status(400).json({errorMessage: "Please provide text for the comment."})
+    } else if(req.body.text){
+        db.insertComment(comment)
+        .then(comment => {
             res.status(201).json(comment)
-        } else if(req.body.text = 0) {
-            res.status(400).json({errorMessage: "Please provide text for the comment."})
-        } else {
+        }).catch(error => {
             res.status(404).json({message: "The post with the specified ID does not exist."})
-        }
-    }).catch(error => {
-        res.status(500).json({error: "The posts information could not be retrieved."}).end()
-    })
+        })
+    }
 })
 
 router.put("/:id", (req, res) => {
     const id = req.params.id
-    const update = req.body
+    let post = req.body
 
-    db.update(id, update)
-    .then(post => {
-        if (post === 1) {
-            res.status(200).json(post)
-        } else if (!update.title || !update.contents) {
-            res.status(400).json({message: 'provide a title and contents for the post.' })
-        } else if (post === 0) {
-            res.status(404).json({ message: 'The post with the specified ID does not exist, please try again.' })
-        }
-        res.status(200).json(postToUpdate)
-    }).catch(err => {
-        res.status(500).json({error: 'post information could not be modified, please retry'})
-    })
+    if(!req.body.title || !req.body.contents){
+        res.status(400).json({message: 'provide a title and contents for the post.' })
+    } else {
+        db.update(id, post)
+        .then(post => {
+            if (post) {
+                res.status(200).json(post)
+            } else {
+                res.status(404).json({ message: 'The post with the specified ID does not exist, please try again.' })
+            }
+        }).catch(error => {
+            res.status(500).json({ error: 'The post information could not be modified' })
+        })
+    }
 })
 
 router.delete("/:id", (req, res) => {
